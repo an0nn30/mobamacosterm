@@ -1,0 +1,54 @@
+# ── Maven ─────────────────────────────────────────────────────────────────────
+target/
+dependency-reduced-pom.xml
+
+# ── Distribution output ───────────────────────────────────────────────────────
+dist/
+
+# ── Vendored lib — keep lib/repo/ (contains purejavacomm which is not on any
+#    public Maven repo), ignore the loose copy at the root of lib/ ────────────
+lib/*.jar
+
+# ── Generated icons (rebuilt by `make icons-mac` / `make icons-win`) ─────────
+src/main/package/*.icns
+src/main/package/*.ico
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+
+# ── Paper icon theme — source only; needed PNGs already copied to
+#    src/main/resources/icons/ and src/main/package/ ──────────────────────────
+paper-icon-theme-master/
+
+# ── Logs & temp ───────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+hs_err_pid*
+replay_pid*

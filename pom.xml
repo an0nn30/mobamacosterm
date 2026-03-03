@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.mobamacos</groupId>
+    <artifactId>mobamacos-terminal</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>MobaMacOS Terminal</name>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jediterm.version>985e58caa9</jediterm.version>
+        <flatlaf.version>3.4.1</flatlaf.version>
+    </properties>
+
+    <repositories>
+        <!-- JitPack for JediTerm (JetBrains don't publish to Maven Central) -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+        <!-- Vendored JARs that are not published to any public Maven repository.
+             purejavacomm 0.0.11.1 is required by pty4j at runtime but was never
+             released publicly; the JAR and a minimal POM live in lib/repo/. -->
+        <repository>
+            <id>project-local</id>
+            <url>file://${project.basedir}/lib/repo</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- JediTerm — JetBrains' terminal emulator (used in IntelliJ) -->
+        <!-- jediterm-ui is the Swing widget; jediterm-core has TtyConnector/TermSize etc.
+             Core is declared runtime-only in the UI POM, so we must add it explicitly. -->
+        <dependency>
+            <groupId>com.github.JetBrains.jediterm</groupId>
+            <artifactId>jediterm-ui</artifactId>
+            <version>${jediterm.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.JetBrains.jediterm</groupId>
+            <artifactId>jediterm-core</artifactId>
+            <version>${jediterm.version}</version>
+        </dependency>
+
+        <!-- SSHJ — SSH library with native OpenSSH key format support (Ed25519, ECDSA, etc.)
+             JSch 0.1.55 cannot read modern "BEGIN OPENSSH PRIVATE KEY" files. -->
+        <dependency>
+            <groupId>com.hierynomus</groupId>
+            <artifactId>sshj</artifactId>
+            <version>0.38.0</version>
+        </dependency>
+
+        <!-- FlatLaf — modern Swing look-and-feel with dark/light themes -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>${flatlaf.version}</version>
+        </dependency>
+
+        <!-- Jackson — JSON config file persistence -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.16.1</version>
+        </dependency>
+
+        <!-- pty4j — JetBrains PTY library for local terminal sessions. -->
+        <dependency>
+            <groupId>org.jetbrains.pty4j</groupId>
+            <artifactId>pty4j</artifactId>
+            <version>0.12.35</version>
+            <exclusions>
+                <!-- Exclude the transitive purejavacomm; we declare it below with
+                     system scope so Maven uses lib/ directly without a network lookup. -->
+                <exclusion>
+                    <groupId>org.jetbrains.pty4j</groupId>
+                    <artifactId>purejavacomm</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- purejavacomm 0.0.11.1: vendored in lib/repo/ (never published publicly).
+             Resolved via the project-local repository declared above. -->
+        <dependency>
+            <groupId>org.jetbrains.pty4j</groupId>
+            <artifactId>purejavacomm</artifactId>
+            <version>0.0.11.1</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- SLF4J — required by JediTerm -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.9</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Run via: mvn exec:java -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.1</version>
+                <configuration>
+                    <mainClass>com.mobamacos.Main</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- Fat JAR via: mvn package -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.mobamacos.Main</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
