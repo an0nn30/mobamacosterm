@@ -1,17 +1,24 @@
 # =============================================================================
 # MobaMacOS Terminal — CI / Release pipeline
 #
-# Every push to main:
-#   1. Builds + tests on macOS (arm64 + x86_64) and Windows in parallel
-#   2. Packages platform-native installers versioned 1.0.<run_number>
-#   3. Creates a GitHub Release with all three installers attached
+# Every push to main builds all platform variants in parallel and publishes
+# a GitHub Release with every installer attached.
 #
-# macOS runners:
-#   macos-latest  → arm64  (Apple Silicon M-series)   — 3x Linux rate
-#   macos-13      → x86_64 (Intel)                    — 3x Linux rate
+# Artifacts produced:
+#   MobaMacOS Terminal-1.0.N-arm64.dmg      macOS Apple Silicon
+#   MobaMacOS Terminal-1.0.N-x86_64.dmg     macOS Intel
+#   mobamacos-terminal_1.0.N_arm64.deb      Linux Debian/Ubuntu  arm64
+#   mobamacos-terminal_1.0.N_amd64.deb      Linux Debian/Ubuntu  x86_64
+#   mobamacos-terminal-1.0.N-1.aarch64.rpm  Linux Fedora/RHEL    arm64
+#   mobamacos-terminal-1.0.N-1.x86_64.rpm   Linux Fedora/RHEL    x86_64
+#   MobaMacOS Terminal-1.0.N.exe            Windows x86_64
 #
-# jpackage bundles the JRE of the host platform, so we must build on each
-# arch separately — there is no universal binary option.
+# macOS runners:   macos-latest (arm64) + macos-13 (x86_64)  — 10x Linux rate
+# Linux runners:   ubuntu-latest (x86_64) + ubuntu-24.04-arm (arm64)
+# Windows runner:  windows-latest (x86_64)                   — 2x Linux rate
+#
+# jpackage bundles the host JRE, so cross-compilation is not possible;
+# each platform/arch must be built on a matching runner.
 # =============================================================================
 
 name: Build
@@ -27,7 +34,7 @@ env:
 
 jobs:
 
-  # ── macOS .app + .dmg (arm64 and x86_64) ───────────────────────────────────
+  # ── macOS .app + .dmg (arm64 and x86_64) ──────────────────────────────────
   build-mac:
     name: macOS (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -62,9 +69,9 @@ jobs:
       - name: Package .dmg
         run: make APP_VERSION=$APP_VERSION dmg
 
-      # Rename the .dmg to include the CPU architecture so both files can
-      # coexist in the same release (e.g. MobaMacOS Terminal-1.0.5-arm64.dmg).
-      - name: Rename .dmg with architecture suffix
+      # jpackage names all macOS DMGs identically regardless of arch, so we
+      # add the arch suffix here before uploading.
+      - name: Add architecture suffix to .dmg
         run: |
           for f in dist/mac/*.dmg; do
             mv "$f" "${f%.dmg}-${{ matrix.arch }}.dmg"
@@ -76,7 +83,84 @@ jobs:
           path: dist/mac/*.dmg
           retention-days: 30
 
-  # ── Windows .exe ───────────────────────────────────────────────────────────
+  # ── Linux .deb + .rpm (arm64 and x86_64) ──────────────────────────────────
+  build-linux:
+    name: Linux (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest      # x86_64
+            arch:   x86_64
+          - runner: ubuntu-24.04-arm   # arm64
+            arch:   arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build + test
+        run: mvn package -q
+
+      # fakeroot is pre-installed; rpm provides rpmbuild for RPM packaging.
+      - name: Install RPM build tools
+        run: sudo apt-get install -y rpm
+
+      # Stage the JAR manually to avoid re-invoking Maven via the Makefile's
+      # PHONY dependency chain.
+      - name: Stage JAR
+        run: |
+          mkdir -p target/package-input
+          cp target/mobamacos-terminal-0.1.0-SNAPSHOT.jar target/package-input/
+
+      # deb/rpm filenames already embed the architecture (amd64, arm64,
+      # x86_64, aarch64) so no renaming is needed.
+      - name: Package .deb
+        run: |
+          $JAVA_HOME/bin/jpackage \
+            --input        target/package-input \
+            --main-jar     mobamacos-terminal-0.1.0-SNAPSHOT.jar \
+            --main-class   com.mobamacos.Main \
+            --name         mobamacos-terminal \
+            --app-version  $APP_VERSION \
+            --vendor       MobaMacOS \
+            --description  "A MobaXterm-inspired SSH client for macOS" \
+            --icon         src/main/package/app-icon-512.png \
+            --java-options "-Xmx512m" \
+            --java-options "-Dfile.encoding=UTF-8" \
+            --type         deb \
+            --dest         dist/linux
+
+      - name: Package .rpm
+        run: |
+          $JAVA_HOME/bin/jpackage \
+            --input        target/package-input \
+            --main-jar     mobamacos-terminal-0.1.0-SNAPSHOT.jar \
+            --main-class   com.mobamacos.Main \
+            --name         mobamacos-terminal \
+            --app-version  $APP_VERSION \
+            --vendor       MobaMacOS \
+            --description  "A MobaXterm-inspired SSH client for macOS" \
+            --icon         src/main/package/app-icon-512.png \
+            --java-options "-Xmx512m" \
+            --java-options "-Dfile.encoding=UTF-8" \
+            --type         rpm \
+            --dest         dist/linux
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-dist-${{ matrix.arch }}
+          path: dist/linux/
+          retention-days: 30
+
+  # ── Windows .exe (x86_64) ─────────────────────────────────────────────────
   build-win:
     name: Windows
     runs-on: windows-latest
@@ -93,8 +177,6 @@ jobs:
       - name: Build + test
         run: mvn package -q
 
-      # Stage the fat JAR manually (avoids re-invoking Maven via the PHONY
-      # `jar` → `stage` dependency chain in the Makefile).
       - name: Stage JAR
         shell: bash
         run: |
@@ -141,10 +223,10 @@ jobs:
           path: dist/win/
           retention-days: 30
 
-  # ── GitHub Release (every push to main) ────────────────────────────────────
+  # ── GitHub Release (every push to main) ───────────────────────────────────
   release:
     name: Release
-    needs: [build-mac, build-win]
+    needs: [build-mac, build-linux, build-win]
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     permissions:
@@ -153,12 +235,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Download all three artifacts into a flat staging directory.
       - uses: actions/download-artifact@v4
         with:
           pattern: macos-dist-*
           merge-multiple: true
           path: dist/mac/
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linux-dist-*
+          merge-multiple: true
+          path: dist/linux/
 
       - uses: actions/download-artifact@v4
         with:
@@ -173,4 +260,6 @@ jobs:
             --title "MobaMacOS Terminal v$APP_VERSION" \
             --generate-notes \
             dist/mac/*.dmg \
+            dist/linux/*.deb \
+            dist/linux/*.rpm \
             dist/win/*.exe
