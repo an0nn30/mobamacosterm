@@ -1,15 +1,13 @@
 # =============================================================================
 # MobaMacOS Terminal — CI / Release pipeline
 #
-# Jobs:
-#   build-mac  — compiles, tests, and packages macOS .app + .dmg
-#   build-win  — compiles, tests, and packages Windows .exe
-#   release    — creates a GitHub Release on version tags (v*.*.*)
+# Every push to main:
+#   1. Builds + tests on macOS and Windows in parallel
+#   2. Packages platform-native installers versioned 1.0.<run_number>
+#   3. Creates a GitHub Release with the .dmg and .exe attached
 #
-# Artifacts are retained for 30 days on every push/PR.
-# A GitHub Release with the .dmg and .exe is created when you push a tag:
-#
-#   git tag v1.0.0 && git push origin v1.0.0
+# To cut a release, just push (or merge a PR) to main.
+# Versions:  1.0.1, 1.0.2, 1.0.3 … (GitHub Actions run number)
 # =============================================================================
 
 name: Build
@@ -17,9 +15,13 @@ name: Build
 on:
   push:
     branches: [main, master]
-    tags: ['v*.*.*']
   pull_request:
     branches: [main, master]
+
+# APP_VERSION is available to every job and step.
+# github.run_number starts at 1 and increments with every workflow run.
+env:
+  APP_VERSION: 1.0.${{ github.run_number }}
 
 jobs:
 
@@ -43,13 +45,11 @@ jobs:
       - name: Generate macOS icon (.icns)
         run: make icons-mac
 
-      # make app-mac / dmg each depend on the PHONY `stage` target which
-      # re-runs `mvn package -DskipTests`; that's fast with the Maven cache.
       - name: Package .app
-        run: make app-mac
+        run: make APP_VERSION=$APP_VERSION app-mac
 
       - name: Package .dmg
-        run: make dmg
+        run: make APP_VERSION=$APP_VERSION dmg
 
       - uses: actions/upload-artifact@v4
         with:
@@ -74,8 +74,8 @@ jobs:
       - name: Build + test
         run: mvn package -q
 
-      # Stage the fat JAR manually so we don't re-invoke Maven via the
-      # Makefile's PHONY `jar` target.
+      # Stage the fat JAR manually (avoids re-invoking Maven via the PHONY
+      # `jar` → `stage` dependency chain in the Makefile).
       - name: Stage JAR
         shell: bash
         run: |
@@ -91,8 +91,6 @@ jobs:
             src/main/package/mobamacos-terminal.ico
 
       # WiX Toolset 3.x is required by jpackage --type exe.
-      # windows-latest typically includes it; this ensures it's present and
-      # adds it to PATH for the packaging step.
       - name: Install WiX Toolset
         run: choco install wixtoolset --no-progress -y
 
@@ -105,7 +103,7 @@ jobs:
             --main-jar       "mobamacos-terminal-0.1.0-SNAPSHOT.jar"     `
             --main-class     "com.mobamacos.Main"                        `
             --name           "MobaMacOS Terminal"                        `
-            --app-version    "1.0.0"                                     `
+            --app-version    "$env:APP_VERSION"                          `
             --vendor         "MobaMacOS"                                 `
             --description    "A MobaXterm-inspired SSH client for macOS" `
             --java-options   "-Xmx512m"                                  `
@@ -124,12 +122,13 @@ jobs:
           path: dist/win/
           retention-days: 30
 
-  # ── GitHub Release (version tags only) ────────────────────────────────────
+  # ── GitHub Release (every push to main) ───────────────────────────────────
   release:
     name: Release
     needs: [build-mac, build-win]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Skip on pull requests — only publish releases from actual merges to main.
+    if: github.event_name == 'push'
     permissions:
       contents: write
 
@@ -150,8 +149,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "MobaMacOS Terminal ${{ github.ref_name }}" \
+          gh release create "v$APP_VERSION" \
+            --title "MobaMacOS Terminal v$APP_VERSION" \
             --generate-notes \
             dist/mac/*.dmg \
             dist/win/*.exe
