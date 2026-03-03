@@ -2,6 +2,8 @@
 
 A [MobaXterm](https://mobaxterm.mobatek.net)-inspired SSH client for macOS, built with Java 17 + Swing.
 
+![Alt text](./screenshot.png?raw=true "MobaMacOSTerm")
+
 **Single-window workspace** — tabbed SSH sessions in the centre, a server tree on the right, and a file-transfer browser on the left. No Java required on the end-user's machine; the distributed `.app` / `.exe` bundles its own JRE.
 
 ---
