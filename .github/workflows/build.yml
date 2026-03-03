@@ -11,7 +11,7 @@
 #   mobamacos-terminal_1.0.N_amd64.deb      Linux Debian/Ubuntu  x86_64
 #   mobamacos-terminal-1.0.N-1.aarch64.rpm  Linux Fedora/RHEL    arm64
 #   mobamacos-terminal-1.0.N-1.x86_64.rpm   Linux Fedora/RHEL    x86_64
-#   MobaMacOS Terminal-1.0.N.exe            Windows x86_64
+#   MobaMacOS Terminal-1.0.N.msi            Windows x86_64
 #
 # macOS runners:   macos-latest (arm64) + macos-13 (x86_64)  — 10x Linux rate
 # Linux runners:   ubuntu-latest (x86_64) + ubuntu-24.04-arm (arm64)
@@ -191,11 +191,14 @@ jobs:
             -define icon:auto-resize=256,128,64,48,32,16 \
             src/main/package/mobamacos-terminal.ico
 
-      # WiX Toolset 3.x is required by jpackage --type exe.
+      # WiX Toolset 3.x is required by jpackage --type msi.
       - name: Install WiX Toolset
         run: choco install wixtoolset --no-progress -y
 
-      - name: Package .exe
+      # MSI is the native Windows Installer format — integrates with Add/Remove
+      # Programs, Group Policy, and enterprise deployment tools.
+      # Note: --win-shortcut-prompt is EXE-only and is not valid for MSI.
+      - name: Package .msi
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist\win | Out-Null
@@ -209,13 +212,12 @@ jobs:
             --description    "A MobaXterm-inspired SSH client for macOS" `
             --java-options   "-Xmx512m"                                  `
             --java-options   "-Dfile.encoding=UTF-8"                     `
-            --type           exe                                         `
+            --type           msi                                         `
             --dest           "dist\win"                                  `
             --icon           "src\main\package\mobamacos-terminal.ico"   `
             --win-dir-chooser                                            `
             --win-menu                                                   `
-            --win-shortcut                                               `
-            --win-shortcut-prompt
+            --win-shortcut
 
       - uses: actions/upload-artifact@v4
         with:
@@ -262,4 +264,4 @@ jobs:
             dist/mac/*.dmg \
             dist/linux/*.deb \
             dist/linux/*.rpm \
-            dist/win/*.exe
+            dist/win/*.msi

@@ -12,7 +12,7 @@
 #   make app          — native app for the current OS
 #   make app-mac      — macOS .app bundle   (must run on macOS,  JDK 14+)
 #   make dmg          — macOS .dmg installer (must run on macOS)
-#   make app-win      — Windows .exe installer (must run on Windows + WiX 3.x)
+#   make app-win      — Windows .msi installer (must run on Windows + WiX 3.x)
 #   make icons-mac    — generate .icns from Paper 512×512 terminal icon
 #   make icons-win    — generate .ico  from Paper 512×512 terminal icon
 #   make clean        — remove target/, dist/, and generated icons
@@ -186,19 +186,18 @@ dmg: stage icons-mac  ## macOS .dmg drag-to-install package (run on macOS)
 	@echo ""
 	@echo "  Built: $(DIST_DIR)/mac/$(APP_NAME)-$(APP_VERSION).dmg"
 
-app-win: stage icons-win  ## Windows self-contained .exe installer (run on Windows + WiX Toolset 3.x)
+app-win: stage icons-win  ## Windows .msi installer (run on Windows + WiX Toolset 3.x)
 	@mkdir -p "$(DIST_DIR)/win"
 	$(JPACKAGE)                                                \
 		$(JPACKAGE_COMMON_FLAGS)                               \
-		--type           exe                                   \
+		--type           msi                                   \
 		--dest           "$(DIST_DIR)/win"                     \
 		--icon           "$(ICON_WINDOWS)"                     \
 		--win-dir-chooser                                      \
 		--win-menu                                             \
-		--win-shortcut                                         \
-		--win-shortcut-prompt
+		--win-shortcut
 	@echo ""
-	@echo "  Built: $(DIST_DIR)/win/$(APP_NAME)-$(APP_VERSION).exe"
+	@echo "  Built: $(DIST_DIR)/win/$(APP_NAME)-$(APP_VERSION).msi"
 
 # =============================================================================
 # Housekeeping
