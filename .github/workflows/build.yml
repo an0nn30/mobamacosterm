@@ -1,16 +1,16 @@
 # =============================================================================
-# MobaMacOS Terminal — CI / Release pipeline
+# Conch — CI / Release pipeline
 #
 # Every push to main builds all platform variants in parallel and publishes
 # a GitHub Release with every installer attached.
 #
 # Artifacts produced (version read from pom.xml):
-#   MobaMacOS Terminal-X.Y.Z-arm64.dmg      macOS Apple Silicon
-#   mobamacos-terminal_X.Y.Z_arm64.deb      Linux Debian/Ubuntu  arm64
-#   mobamacos-terminal_X.Y.Z_amd64.deb      Linux Debian/Ubuntu  x86_64
-#   mobamacos-terminal-X.Y.Z-1.aarch64.rpm  Linux Fedora/RHEL    arm64
-#   mobamacos-terminal-X.Y.Z-1.x86_64.rpm   Linux Fedora/RHEL    x86_64
-#   MobaMacOS Terminal-X.Y.Z.msi            Windows x86_64
+#   Conch-X.Y.Z-arm64.dmg              macOS Apple Silicon
+#   conch_X.Y.Z_arm64.deb              Linux Debian/Ubuntu  arm64
+#   conch_X.Y.Z_amd64.deb              Linux Debian/Ubuntu  x86_64
+#   conch-X.Y.Z-1.aarch64.rpm          Linux Fedora/RHEL    arm64
+#   conch-X.Y.Z-1.x86_64.rpm           Linux Fedora/RHEL    x86_64
+#   Conch-X.Y.Z.msi                    Windows x86_64
 #
 # macOS runners:   macos-latest (arm64 only — GitHub retired macos-13 Intel)
 #                  For an Intel x86_64 .dmg, add a self-hosted Intel runner.
@@ -129,7 +129,7 @@ jobs:
       - name: Stage JAR
         run: |
           mkdir -p target/package-input
-          JAR=$(ls target/mobamacos-terminal-*.jar | head -1 | xargs basename)
+          JAR=$(ls target/conch-*.jar | head -1 | xargs basename)
           cp target/$JAR target/package-input/
           echo "MAIN_JAR=$JAR" >> $GITHUB_ENV
 
@@ -140,12 +140,12 @@ jobs:
           $JAVA_HOME/bin/jpackage \
             --input        target/package-input \
             --main-jar     $MAIN_JAR \
-            --main-class   com.mobamacos.Main \
-            --name         mobamacos-terminal \
+            --main-class   com.github.an0nn30.conch.Main \
+            --name         conch \
             --app-version  $APP_VERSION \
-            --vendor       MobaMacOS \
-            --description  "A MobaXterm-inspired SSH client for macOS" \
-            --icon         src/main/package/app-icon-512.png \
+            --vendor       Conch \
+            --description  "A cross-platform SSH client" \
+            --icon         src/main/package/conch.png \
             --java-options "-Xmx512m" \
             --java-options "-Dfile.encoding=UTF-8" \
             --type         deb \
@@ -156,12 +156,12 @@ jobs:
           $JAVA_HOME/bin/jpackage \
             --input        target/package-input \
             --main-jar     $MAIN_JAR \
-            --main-class   com.mobamacos.Main \
-            --name         mobamacos-terminal \
+            --main-class   com.github.an0nn30.conch.Main \
+            --name         conch \
             --app-version  $APP_VERSION \
-            --vendor       MobaMacOS \
-            --description  "A MobaXterm-inspired SSH client for macOS" \
-            --icon         src/main/package/app-icon-512.png \
+            --vendor       Conch \
+            --description  "A cross-platform SSH client" \
+            --icon         src/main/package/conch.png \
             --java-options "-Xmx512m" \
             --java-options "-Dfile.encoding=UTF-8" \
             --type         rpm \
@@ -197,7 +197,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p target/package-input
-          JAR=$(ls target/mobamacos-terminal-*.jar | head -1 | xargs basename)
+          JAR=$(ls target/conch-*.jar | head -1 | xargs basename)
           cp target/$JAR target/package-input/
           echo "MAIN_JAR=$JAR" >> $GITHUB_ENV
 
@@ -205,9 +205,9 @@ jobs:
       - name: Generate Windows icon (.ico)
         shell: bash
         run: |
-          magick src/main/package/app-icon-512.png \
+          magick src/main/package/conch.png \
             -define icon:auto-resize=256,128,64,48,32,16 \
-            src/main/package/mobamacos-terminal.ico
+            src/main/package/conch.ico
 
       # WiX Toolset 3.x is required by jpackage --type msi.
       - name: Install WiX Toolset
@@ -220,16 +220,16 @@ jobs:
           & "$env:JAVA_HOME\bin\jpackage" `
             --input          "target\package-input"                      `
             --main-jar       "$env:MAIN_JAR"                             `
-            --main-class     "com.mobamacos.Main"                        `
-            --name           "MobaMacOS Terminal"                        `
+            --main-class     "com.github.an0nn30.conch.Main"             `
+            --name           "Conch"                                     `
             --app-version    "$env:APP_VERSION"                          `
-            --vendor         "MobaMacOS"                                 `
-            --description    "A MobaXterm-inspired SSH client for macOS" `
+            --vendor         "Conch"                                     `
+            --description    "A cross-platform SSH client"               `
             --java-options   "-Xmx512m"                                  `
             --java-options   "-Dfile.encoding=UTF-8"                     `
             --type           msi                                         `
             --dest           "dist\win"                                  `
-            --icon           "src\main\package\mobamacos-terminal.ico"   `
+            --icon           "src\main\package\conch.ico"                `
             --win-dir-chooser                                            `
             --win-menu                                                   `
             --win-shortcut
@@ -295,6 +295,6 @@ jobs:
             [ -f "$f" ] && FILES+=("$f")
           done
           gh release create "v$APP_VERSION" \
-            --title "MobaMacOS Terminal v$APP_VERSION" \
+            --title "Conch v$APP_VERSION" \
             --generate-notes \
             "${FILES[@]}"

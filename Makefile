@@ -1,5 +1,5 @@
 # =============================================================================
-# MobaMacOS Terminal — Makefile
+# Conch — Makefile
 # =============================================================================
 #
 # Quick reference:
@@ -21,12 +21,12 @@
 # =============================================================================
 
 # ── App metadata ──────────────────────────────────────────────────────────────
-APP_NAME    := MobaMacOS Terminal
-APP_VENDOR  := MobaMacOS
-APP_ID      := com.mobamacos.terminal
+APP_NAME    := Conch
+APP_VENDOR  := Conch
+APP_ID      := com.github.an0nn30.conch
 APP_VERSION := 1.0.0
-MAIN_CLASS  := com.mobamacos.Main
-DESCRIPTION := A MobaXterm-inspired SSH client for macOS
+MAIN_CLASS  := com.github.an0nn30.conch.Main
+DESCRIPTION := A cross-platform SSH client
 
 # ── Build paths ───────────────────────────────────────────────────────────────
 MVN            := mvn
@@ -37,13 +37,12 @@ STAGE_DIR      := $(TARGET_DIR)/package-input
 # Name that maven-shade-plugin writes (matches pom.xml artifactId + version).
 # Extracted dynamically so bumping pom.xml is the only change needed.
 POM_VERSION    := $(shell $(MVN) help:evaluate -Dexpression=project.version -q -DforceStdout 2>/dev/null || echo UNKNOWN)
-SHADED_JAR     := $(TARGET_DIR)/mobamacos-terminal-$(POM_VERSION).jar
+SHADED_JAR     := $(TARGET_DIR)/conch-$(POM_VERSION).jar
 
-# ── Icon sources (from bundled Paper icon theme) ───────────────────────────────
-ICON_SRC_512   := src/main/package/app-icon-512.png
-ICON_SRC_1024  := src/main/package/app-icon-1024.png
-ICON_MACOS     := src/main/package/mobamacos-terminal.icns
-ICON_WINDOWS   := src/main/package/mobamacos-terminal.ico
+# ── Icon sources ───────────────────────────────────────────────────────────────
+ICON_SRC       := src/main/package/conch.png
+ICON_MACOS     := src/main/package/conch.icns
+ICON_WINDOWS   := src/main/package/conch.ico
 
 # ── Detect OS + locate jpackage ───────────────────────────────────────────────
 OS := $(shell uname -s 2>/dev/null || echo Windows_NT)
@@ -102,41 +101,41 @@ stage:  ## Force-clean build + copy fat JAR into staging directory for jpackage
 # Icon generation
 # =============================================================================
 
-icons-mac: $(ICON_MACOS)  ## Generate .icns from the Paper 512×512 terminal icon (macOS only)
+icons-mac: $(ICON_MACOS)  ## Generate .icns from conch.png (macOS only)
 
-# Make will skip this if .icns is already newer than both source PNGs.
-$(ICON_MACOS): $(ICON_SRC_512) $(ICON_SRC_1024)
+# Make will skip this if .icns is already newer than the source PNG.
+$(ICON_MACOS): $(ICON_SRC)
 	@echo "  Generating $(ICON_MACOS)…"
 	@mkdir -p "$(dir $(ICON_MACOS))"
-	@TMPDIR=$$(mktemp -d) && ICONSET="$$TMPDIR/mobamacos.iconset" && mkdir "$$ICONSET" \
-	&& sips -z 16   16   "$(ICON_SRC_512)"  --out "$$ICONSET/icon_16x16.png"      >/dev/null \
-	&& sips -z 32   32   "$(ICON_SRC_512)"  --out "$$ICONSET/icon_16x16@2x.png"   >/dev/null \
-	&& sips -z 32   32   "$(ICON_SRC_512)"  --out "$$ICONSET/icon_32x32.png"       >/dev/null \
-	&& sips -z 64   64   "$(ICON_SRC_512)"  --out "$$ICONSET/icon_32x32@2x.png"   >/dev/null \
-	&& sips -z 128  128  "$(ICON_SRC_512)"  --out "$$ICONSET/icon_128x128.png"    >/dev/null \
-	&& sips -z 256  256  "$(ICON_SRC_512)"  --out "$$ICONSET/icon_128x128@2x.png" >/dev/null \
-	&& sips -z 256  256  "$(ICON_SRC_512)"  --out "$$ICONSET/icon_256x256.png"    >/dev/null \
-	&& sips -z 512  512  "$(ICON_SRC_512)"  --out "$$ICONSET/icon_256x256@2x.png" >/dev/null \
-	&& sips -z 512  512  "$(ICON_SRC_512)"  --out "$$ICONSET/icon_512x512.png"    >/dev/null \
-	&& sips -z 1024 1024 "$(ICON_SRC_1024)" --out "$$ICONSET/icon_512x512@2x.png" >/dev/null \
+	@TMPDIR=$$(mktemp -d) && ICONSET="$$TMPDIR/conch.iconset" && mkdir "$$ICONSET" \
+	&& sips -z 16   16   "$(ICON_SRC)"  --out "$$ICONSET/icon_16x16.png"      >/dev/null \
+	&& sips -z 32   32   "$(ICON_SRC)"  --out "$$ICONSET/icon_16x16@2x.png"   >/dev/null \
+	&& sips -z 32   32   "$(ICON_SRC)"  --out "$$ICONSET/icon_32x32.png"       >/dev/null \
+	&& sips -z 64   64   "$(ICON_SRC)"  --out "$$ICONSET/icon_32x32@2x.png"   >/dev/null \
+	&& sips -z 128  128  "$(ICON_SRC)"  --out "$$ICONSET/icon_128x128.png"    >/dev/null \
+	&& sips -z 256  256  "$(ICON_SRC)"  --out "$$ICONSET/icon_128x128@2x.png" >/dev/null \
+	&& sips -z 256  256  "$(ICON_SRC)"  --out "$$ICONSET/icon_256x256.png"    >/dev/null \
+	&& sips -z 512  512  "$(ICON_SRC)"  --out "$$ICONSET/icon_256x256@2x.png" >/dev/null \
+	&& sips -z 512  512  "$(ICON_SRC)"  --out "$$ICONSET/icon_512x512.png"    >/dev/null \
+	&& sips -z 1024 1024 "$(ICON_SRC)"  --out "$$ICONSET/icon_512x512@2x.png" >/dev/null \
 	&& iconutil -c icns "$$ICONSET" -o "$(ICON_MACOS)" \
 	&& rm -rf "$$TMPDIR"
 	@echo "  Done: $(ICON_MACOS)"
 
-icons-win: $(ICON_WINDOWS)  ## Generate .ico from Paper icon (requires ImageMagick: brew install imagemagick)
+icons-win: $(ICON_WINDOWS)  ## Generate .ico from conch.png (requires ImageMagick: brew install imagemagick)
 
-$(ICON_WINDOWS): $(ICON_SRC_512)
+$(ICON_WINDOWS): $(ICON_SRC)
 	@echo "  Generating $(ICON_WINDOWS)…"
 	@mkdir -p "$(dir $(ICON_WINDOWS))"
 	@if command -v magick >/dev/null 2>&1; then \
-	    magick "$(ICON_SRC_512)" \
+	    magick "$(ICON_SRC)" \
 	        -define icon:auto-resize=256,128,64,48,32,16 \
 	        "$(ICON_WINDOWS)" \
 	    && echo "  Done: $(ICON_WINDOWS)"; \
 	else \
 	    echo "  WARNING: ImageMagick not found.  Install with: brew install imagemagick"; \
 	    echo "           Falling back to PNG (Windows installer will use a default icon)."; \
-	    cp "$(ICON_SRC_512)" "$(ICON_WINDOWS)"; \
+	    cp "$(ICON_SRC)" "$(ICON_WINDOWS)"; \
 	fi
 
 # =============================================================================
@@ -217,7 +216,7 @@ clean:  ## Remove target/, dist/, staging, and generated icon files
 
 help:  ## Show available targets and usage notes
 	@echo ""
-	@echo "  MobaMacOS Terminal — Makefile targets"
+	@echo "  Conch — Makefile targets"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
 	    awk 'BEGIN {FS = ":.*##"}; {printf "  make %-14s %s\n", $$1, $$2}'

@@ -4,11 +4,11 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.mobamacos</groupId>
-    <artifactId>mobamacos-terminal</artifactId>
+    <groupId>com.github.an0nn30.conch</groupId>
+    <artifactId>conch</artifactId>
     <version>0.2.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>MobaMacOS Terminal</name>
+    <name>Conch</name>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
@@ -123,7 +123,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.1</version>
                 <configuration>
-                    <mainClass>com.mobamacos.Main</mainClass>
+                    <mainClass>com.github.an0nn30.conch.Main</mainClass>
                 </configuration>
             </plugin>
 
@@ -150,7 +150,7 @@
                             </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.mobamacos.Main</mainClass>
+                                    <mainClass>com.github.an0nn30.conch.Main</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
