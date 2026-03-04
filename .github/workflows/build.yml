@@ -107,7 +107,9 @@ jobs:
       - name: Stage JAR
         run: |
           mkdir -p target/package-input
-          cp target/mobamacos-terminal-0.1.0-SNAPSHOT.jar target/package-input/
+          JAR=$(ls target/mobamacos-terminal-*.jar | head -1 | xargs basename)
+          cp target/$JAR target/package-input/
+          echo "MAIN_JAR=$JAR" >> $GITHUB_ENV
 
       # deb/rpm filenames already embed the architecture (amd64, arm64,
       # x86_64, aarch64) so no renaming is needed.
@@ -115,7 +117,7 @@ jobs:
         run: |
           $JAVA_HOME/bin/jpackage \
             --input        target/package-input \
-            --main-jar     mobamacos-terminal-0.1.0-SNAPSHOT.jar \
+            --main-jar     $MAIN_JAR \
             --main-class   com.mobamacos.Main \
             --name         mobamacos-terminal \
             --app-version  $APP_VERSION \
@@ -131,7 +133,7 @@ jobs:
         run: |
           $JAVA_HOME/bin/jpackage \
             --input        target/package-input \
-            --main-jar     mobamacos-terminal-0.1.0-SNAPSHOT.jar \
+            --main-jar     $MAIN_JAR \
             --main-class   com.mobamacos.Main \
             --name         mobamacos-terminal \
             --app-version  $APP_VERSION \
@@ -170,7 +172,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p target/package-input
-          cp target/mobamacos-terminal-0.1.0-SNAPSHOT.jar target/package-input/
+          JAR=$(ls target/mobamacos-terminal-*.jar | head -1 | xargs basename)
+          cp target/$JAR target/package-input/
+          echo "MAIN_JAR=$JAR" >> $GITHUB_ENV
 
       # ImageMagick (magick) is pre-installed on windows-latest.
       - name: Generate Windows icon (.ico)
@@ -190,7 +194,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist\win | Out-Null
           & "$env:JAVA_HOME\bin\jpackage" `
             --input          "target\package-input"                      `
-            --main-jar       "mobamacos-terminal-0.1.0-SNAPSHOT.jar"     `
+            --main-jar       "$env:MAIN_JAR"                             `
             --main-class     "com.mobamacos.Main"                        `
             --name           "MobaMacOS Terminal"                        `
             --app-version    "$env:APP_VERSION"                          `
