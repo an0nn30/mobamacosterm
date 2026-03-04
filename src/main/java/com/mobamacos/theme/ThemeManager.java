@@ -24,14 +24,11 @@ public class ThemeManager {
                 case LIGHT    -> FlatLightLaf.setup();
                 case INTELLIJ -> FlatIntelliJLaf.setup();
                 case DARCULA  -> FlatDarculaLaf.setup();
-                default       -> FlatDarkLaf.setup();
+                case DARK     -> FlatDarkLaf.setup();
+                default       -> UIManager.setLookAndFeel(theme); // system LAF class name
             }
         } catch (Exception e) {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            try { FlatDarkLaf.setup(); } catch (Exception ignored) {}
         }
     }
 

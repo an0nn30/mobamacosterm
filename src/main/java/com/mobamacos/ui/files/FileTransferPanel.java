@@ -61,8 +61,24 @@ public class FileTransferPanel extends JPanel implements SessionTabPane.SessionL
      */
     @Override
     public void onCwdChanged(String absolutePath) {
-        if (remoteProvider == null) return;
+        if (remotePanel.provider == null) return;
         remotePanel.navigate(absolutePath);
+    }
+
+    /**
+     * Called when a local terminal tab becomes active.
+     * Shows a local file browser in the remote (top) panel so it tracks the shell CWD.
+     */
+    @Override
+    public void onLocalSessionActivated() {
+        if (remotePanel.provider instanceof LocalFileProvider) return; // already set up
+        connectedServer = null;
+        if (remoteProvider != null) {
+            try { remoteProvider.close(); } catch (Exception ignored) {}
+            remoteProvider = null;
+        }
+        remotePanel.setProvider(new LocalFileProvider());
+        localPanel.updateTransferButtonState();
     }
 
     @Override

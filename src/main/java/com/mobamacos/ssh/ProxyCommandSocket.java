@@ -39,17 +39,24 @@ public class ProxyCommandSocket extends Socket {
         startProcess();
     }
 
+    private static final boolean WINDOWS =
+            System.getProperty("os.name", "").toLowerCase().contains("win");
+
     private void startProcess() throws IOException {
         if (connected) return;
 
-        ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", command);
+        ProcessBuilder pb = WINDOWS
+                ? new ProcessBuilder("cmd.exe", "/c", command)
+                : new ProcessBuilder("/bin/sh", "-c", command);
 
-        // Augment PATH so tools like cloudflared installed via Homebrew are found
-        // even when the JVM was launched from a GUI context (Dock, IDE) with a
-        // stripped-down PATH that omits /opt/homebrew/bin etc.
-        pb.environment().merge("PATH",
-                "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin",
-                (existing, extra) -> extra + ":" + existing);
+        if (!WINDOWS) {
+            // Augment PATH so tools like cloudflared installed via Homebrew are found
+            // even when the JVM was launched from a GUI context (Dock, IDE) with a
+            // stripped-down PATH that omits /opt/homebrew/bin etc.
+            pb.environment().merge("PATH",
+                    "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin",
+                    (existing, extra) -> extra + ":" + existing);
+        }
 
         pb.redirectErrorStream(false);
         process = pb.start();

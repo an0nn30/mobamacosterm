@@ -38,6 +38,8 @@ public class ServerEntry {
      * mosh's --ssh flag handles the bootstrap proxy.
      */
     private String moshSftpProxyCommand = "";
+    /** Command sent to the shell automatically after session start (SSH and Mosh only). */
+    private String startupCommand = "";
 
     public ServerEntry() {
         this.id = UUID.randomUUID().toString();
@@ -85,6 +87,8 @@ public class ServerEntry {
     public void    setMoshExtraArgs(String a)        { this.moshExtraArgs = a; }
     public String  getMoshSftpProxyCommand()         { return moshSftpProxyCommand; }
     public void    setMoshSftpProxyCommand(String c) { this.moshSftpProxyCommand = c; }
+    public String  getStartupCommand()               { return startupCommand; }
+    public void    setStartupCommand(String cmd)     { this.startupCommand = cmd; }
 
     @Override
     public String toString() {

@@ -29,7 +29,9 @@ public class SessionTabPane extends JPanel {
     /** Tracks which JediTermWidget corresponds to which SshjTtyConnector. */
     private final Map<JediTermWidget, SshjTtyConnector> connectorMap      = new LinkedHashMap<>();
     /** Tracks which JediTermWidget corresponds to which MoshTtyConnector (for CWD tracking). */
-    private final Map<JediTermWidget, MoshTtyConnector> moshConnectorMap  = new LinkedHashMap<>();
+    private final Map<JediTermWidget, MoshTtyConnector>       moshConnectorMap  = new LinkedHashMap<>();
+    /** Tracks which JediTermWidget corresponds to which LocalShellTtyConnector (for CWD tracking). */
+    private final Map<JediTermWidget, LocalShellTtyConnector> localConnectorMap = new LinkedHashMap<>();
 
     /** Listeners notified when the active SSH session changes (e.g. FileTransferPanel). */
     private final List<SessionListener> sessionListeners = new ArrayList<>();
@@ -38,6 +40,8 @@ public class SessionTabPane extends JPanel {
         void onSessionActivated(ServerEntry server);
         /** Called (on the EDT) when the remote shell reports a new working directory. */
         default void onCwdChanged(String absolutePath) {}
+        /** Called (on the EDT) when a local terminal tab becomes active. */
+        default void onLocalSessionActivated() {}
         void onSessionDeactivated();
     }
 
@@ -76,10 +80,20 @@ public class SessionTabPane extends JPanel {
                     sessionListeners.forEach(l -> l.onSessionActivated(server));
                     return;
                 }
+                // Wire CWD listener for the newly-active local connector
+                LocalShellTtyConnector localConn = localConnectorMap.get(comp);
+                if (localConn != null) {
+                    localConn.setCwdListener(path ->
+                        SwingUtilities.invokeLater(() ->
+                            sessionListeners.forEach(l -> l.onCwdChanged(path))));
+                    sessionListeners.forEach(SessionListener::onLocalSessionActivated);
+                    return;
+                }
             }
-            // No SSH/Mosh session active — clear CWD listeners on all connectors
+            // No session active — clear CWD listeners on all connectors
             connectorMap.values().forEach(c -> c.setCwdListener(null));
             moshConnectorMap.values().forEach(c -> c.setCwdListener(null));
+            localConnectorMap.values().forEach(c -> c.setCwdListener(null));
             sessionListeners.forEach(SessionListener::onSessionDeactivated);
         });
     }
@@ -124,13 +138,23 @@ public class SessionTabPane extends JPanel {
                     terminal.createTerminalSession(connector);
                     terminal.start();
 
+                    localConnectorMap.put(terminal, connector);
+
                     String title = "Local Terminal";
                     int idx = tabbedPane.getTabCount();
                     tabbedPane.addTab(title, terminal);
                     tabbedPane.setSelectedIndex(idx);
                     tabbedPane.setTabComponentAt(idx, new TabHeader(tabbedPane, title, () -> {
+                        localConnectorMap.remove(terminal);
+                        connector.setCwdListener(null);
                         try { connector.close(); } catch (Exception ignored) {}
                     }));
+
+                    // Wire CWD listener immediately (this tab is now selected)
+                    connector.setCwdListener(path ->
+                        SwingUtilities.invokeLater(() ->
+                            sessionListeners.forEach(l -> l.onCwdChanged(path))));
+                    sessionListeners.forEach(SessionListener::onLocalSessionActivated);
 
                     watchForExit(connector, terminal, null);
                     terminal.requestFocusInWindow();
@@ -340,6 +364,7 @@ public class SessionTabPane extends JPanel {
                         sessionMap.remove(terminal);
                         connectorMap.remove(terminal);
                     }
+                    localConnectorMap.remove(terminal);
                     tabbedPane.remove(i);
                 }
             });

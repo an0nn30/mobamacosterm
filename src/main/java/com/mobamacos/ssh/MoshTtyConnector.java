@@ -49,12 +49,14 @@ public class MoshTtyConnector implements TtyConnector {
     private final Reader       reader;
     private final OutputStream writer;
     private final String       name;
+    private final String       startupCommand;
 
     private volatile CwdListener cwdListener;
     private final OscParser      oscParser = new OscParser();
 
     public MoshTtyConnector(ServerEntry server) throws IOException {
-        this.name = server.getName() + "@" + server.getHost();
+        this.name           = server.getName() + "@" + server.getHost();
+        this.startupCommand = server.getStartupCommand() != null ? server.getStartupCommand() : "";
 
         String moshBin = findMosh();
 
@@ -220,12 +222,21 @@ public class MoshTtyConnector implements TtyConnector {
         Thread t = new Thread(() -> {
             try {
                 Thread.sleep(800);
+                // Same stty-echo suppression as SshjTtyConnector — see comments there.
+                write("stty -echo\r");
+                Thread.sleep(100);
                 String cmd =
                     " __mc(){ printf '\\033]7;file://%s\\007' \"$PWD\"; };" +
                     " [ -n \"$BASH_VERSION\" ] && PROMPT_COMMAND=\"${PROMPT_COMMAND:+$PROMPT_COMMAND;}__mc\";" +
                     " [ -n \"$ZSH_VERSION\" ]  && precmd_functions+=(__mc);" +
-                    " __mc\r";
-                write(cmd.getBytes(StandardCharsets.UTF_8));
+                    " __mc;" +
+                    " stty echo;" +
+                    " printf '\\033[2K\\033[1A\\033[2K\\r'\r";
+                write(cmd);
+                if (!startupCommand.isBlank()) {
+                    Thread.sleep(100);
+                    write(startupCommand.trim() + "\r");
+                }
             } catch (Exception ignored) {}
         }, "mosh-shell-integration-injector");
         t.setDaemon(true);

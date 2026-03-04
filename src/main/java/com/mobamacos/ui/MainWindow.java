@@ -6,6 +6,8 @@ import com.mobamacos.model.ServerEntry;
 import com.mobamacos.model.ServerFolder;
 import com.mobamacos.ssh.TunnelManager;
 import com.mobamacos.theme.ThemeManager;
+import com.mobamacos.ui.dialogs.NewConnectionDialog;
+import com.mobamacos.ui.dialogs.PreferencesDialog;
 import com.mobamacos.ui.dialogs.ResumeSessionsDialog;
 import com.mobamacos.ui.files.FileTransferPanel;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class MainWindow extends JFrame {
 
     private final ConfigManager     configManager;
+    private final ThemeManager      themeManager;
     private final SidePanel         sidePanel;       // left  — Files / Tools / Macros
     private final SessionTabPane    sessionTabPane;  // centre — terminals
     private final SessionsPanel     sessionsPanel;   // right  — server tree
@@ -30,6 +33,7 @@ public class MainWindow extends JFrame {
     public MainWindow(ConfigManager configManager, ThemeManager themeManager) {
         super("MobaMacOS Terminal");
         this.configManager = configManager;
+        this.themeManager  = themeManager;
 
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setSize(1400, 900);
@@ -48,6 +52,11 @@ public class MainWindow extends JFrame {
         MenuBarBuilder menuBuilder = new MenuBarBuilder(this, configManager, themeManager, tunnelManager);
         menuBuilder.setSessionsPanel(sessionsPanel);
         setJMenuBar(menuBuilder.build());
+
+        // macOS: transparent title bar with action buttons
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+            setupTransparentTitleBar();
+        }
 
         // Layout: [left panel] | [terminals] | [sessions]
         rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionTabPane, sessionsPanel);
@@ -174,6 +183,59 @@ public class MainWindow extends JFrame {
         } else {
             cfg.setRightPanelCollapsed(true);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // macOS transparent title bar
+    // -----------------------------------------------------------------------
+
+    /**
+     * Enables the macOS transparent/unified title bar and extends window content
+     * into the title bar area.  A 28-px strip is added at the top of the content
+     * pane; it leaves ~72 px on the left clear for the traffic-light buttons and
+     * places compact action buttons on the right.
+     */
+    private void setupTransparentTitleBar() {
+        getRootPane().putClientProperty("apple.awt.transparentTitleBar", Boolean.TRUE);
+        getRootPane().putClientProperty("apple.awt.fullWindowContent",   Boolean.TRUE);
+
+        JPanel strip = new JPanel(new BorderLayout());
+        strip.setOpaque(false);
+        strip.setPreferredSize(new Dimension(0, 28));
+
+        // Left: clear the traffic-light buttons (close/minimise/zoom sit at ~x=8-62)
+        strip.add(Box.createHorizontalStrut(72), BorderLayout.WEST);
+
+        // Right: compact action buttons
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 4));
+        right.setOpaque(false);
+        right.add(titleBarButton("+", "New SSH Connection (⌘N)",    this::showNewConnectionDialog));
+        right.add(titleBarButton("⚙", "Preferences (⌘,)",           this::showPreferencesDialog));
+        strip.add(right, BorderLayout.EAST);
+
+        add(strip, BorderLayout.NORTH);
+    }
+
+    private static JButton titleBarButton(String text, String tooltip, Runnable action) {
+        JButton b = new JButton(text);
+        b.setToolTipText(tooltip);
+        b.putClientProperty("JButton.buttonType", "roundRect");
+        b.setFont(b.getFont().deriveFont(11f));
+        b.setFocusPainted(false);
+        b.setMargin(new Insets(1, 7, 1, 7));
+        b.addActionListener(e -> action.run());
+        return b;
+    }
+
+    private void showNewConnectionDialog() {
+        NewConnectionDialog dlg = new NewConnectionDialog(this, configManager);
+        dlg.addSavedListener(sessionsPanel::refresh);
+        dlg.setConnectCallback(sessionTabPane::openSession);
+        dlg.setVisible(true);
+    }
+
+    private void showPreferencesDialog() {
+        new PreferencesDialog(this, configManager, themeManager).setVisible(true);
     }
 
     // -----------------------------------------------------------------------

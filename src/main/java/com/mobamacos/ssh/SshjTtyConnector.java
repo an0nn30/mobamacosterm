@@ -39,6 +39,7 @@ public class SshjTtyConnector implements TtyConnector {
     private final Reader        reader;
     private final OutputStream  outputStream;
     private final String        name;
+    private final String        startupCommand;
 
     private volatile CwdListener cwdListener;
 
@@ -49,11 +50,12 @@ public class SshjTtyConnector implements TtyConnector {
     // Construction
     // -----------------------------------------------------------------------
 
-    public SshjTtyConnector(Session.Shell shell, String name) throws IOException {
-        this.shell        = shell;
-        this.outputStream = shell.getOutputStream();
-        this.reader       = new InputStreamReader(shell.getInputStream(), StandardCharsets.UTF_8);
-        this.name         = name;
+    public SshjTtyConnector(Session.Shell shell, String name, String startupCommand) throws IOException {
+        this.shell          = shell;
+        this.outputStream   = shell.getOutputStream();
+        this.reader         = new InputStreamReader(shell.getInputStream(), StandardCharsets.UTF_8);
+        this.name           = name;
+        this.startupCommand = startupCommand != null ? startupCommand : "";
         injectShellIntegration();
     }
 
@@ -121,16 +123,23 @@ public class SshjTtyConnector implements TtyConnector {
         Thread t = new Thread(() -> {
             try {
                 Thread.sleep(400);
-                // One-liner that works in bash and zsh:
-                //  1. Define __mc() to emit OSC 7 with current PWD
-                //  2. Append it to PROMPT_COMMAND (bash) and precmd_functions (zsh)
-                //  3. Call it immediately so we get the initial directory right away
+                // Disable local echo so the integration script isn't printed on screen.
+                // Only "stty -echo" itself is briefly visible; the printf at the end
+                // erases it (moves up one line, clears, returns to start).
+                write("stty -echo\r");
+                Thread.sleep(100); // let stty take effect before sending the script
                 String cmd =
                     " __mc(){ printf '\\033]7;file://%s\\007' \"$PWD\"; };" +
                     " [ -n \"$BASH_VERSION\" ] && PROMPT_COMMAND=\"${PROMPT_COMMAND:+$PROMPT_COMMAND;}__mc\";" +
                     " [ -n \"$ZSH_VERSION\" ]  && precmd_functions+=(__mc);" +
-                    " __mc\r";
+                    " __mc;" +
+                    " stty echo;" +
+                    " printf '\\033[2K\\033[1A\\033[2K\\r'\r";
                 write(cmd);
+                if (!startupCommand.isBlank()) {
+                    Thread.sleep(100);
+                    write(startupCommand.trim() + "\r");
+                }
             } catch (Exception ignored) {}
         }, "shell-integration-injector");
         t.setDaemon(true);

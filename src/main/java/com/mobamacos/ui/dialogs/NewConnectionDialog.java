@@ -24,6 +24,7 @@ public class NewConnectionDialog extends JDialog {
     private JPasswordField passField;
     private JTextField     keyField;
     private JButton        keyBrowseButton;
+    private JTextField     startupCommandField;
 
     // ── Advanced section ────────────────────────────────────────────────────
     private JButton advancedToggle;
@@ -143,6 +144,13 @@ public class NewConnectionDialog extends JDialog {
         keyPanel.add(keyField, BorderLayout.CENTER);
         keyPanel.add(keyBrowseButton, BorderLayout.EAST);
         content.add(keyPanel, fc);
+
+        // Startup Command
+        lc.gridy = row; fc.gridy = row++;
+        content.add(label("Startup Cmd:"), lc);
+        startupCommandField = new JTextField(22);
+        startupCommandField.putClientProperty("JTextField.placeholderText", "tmux attach || tmux new");
+        content.add(startupCommandField, fc);
 
         // ── Advanced disclosure toggle ─────────────────────────────────────
         wr.insets = new Insets(12, 0, 2, 0);
@@ -495,6 +503,7 @@ public class NewConnectionDialog extends JDialog {
         userField.setText(e.getUsername());
         passField.setText(e.getPassword());
         keyField.setText(e.getPrivateKeyPath());
+        startupCommandField.setText(e.getStartupCommand());
 
         boolean hasProxy = (e.getProxyJump() != null && !e.getProxyJump().isBlank())
                         || (e.getProxyCommand() != null && !e.getProxyCommand().isBlank());
@@ -537,6 +546,7 @@ public class NewConnectionDialog extends JDialog {
         entry.setUsername(userField.getText().strip());
         entry.setPassword(new String(passField.getPassword()));
         entry.setPrivateKeyPath(keyField.getText().strip());
+        entry.setStartupCommand(startupCommandField.getText().strip());
 
         // Clear then re-apply proxy (so removing a proxy on edit works correctly)
         entry.setProxyJump("");

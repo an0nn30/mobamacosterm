@@ -35,7 +35,8 @@ public class SshSessionManager {
                 Collections.<PTYMode, Integer>emptyMap());
         Session.Shell shell = session.startShell();
 
-        return new SshjTtyConnector(shell, server.getName() + "@" + server.getHost());
+        return new SshjTtyConnector(shell, server.getName() + "@" + server.getHost(),
+                server.getStartupCommand());
     }
 
     /**

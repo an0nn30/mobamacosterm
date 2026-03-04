@@ -97,8 +97,16 @@ public class PreferencesDialog extends JDialog {
 
         String current = configManager.getConfig().getTheme();
         ButtonGroup group = new ButtonGroup();
+
+        // FlatLaf themes
+        JLabel flatLabel = new JLabel("FlatLaf");
+        flatLabel.setFont(flatLabel.getFont().deriveFont(Font.BOLD, 11f));
+        flatLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        p.add(flatLabel);
+        p.add(Box.createVerticalStrut(4));
+
         String[][] themes = {
-                { ThemeManager.DARK,     "Dark (default)" },
+                { ThemeManager.DARK,     "Dark" },
                 { ThemeManager.DARCULA,  "Darcula" },
                 { ThemeManager.INTELLIJ, "IntelliJ Light" },
                 { ThemeManager.LIGHT,    "Light" },
@@ -107,6 +115,24 @@ public class PreferencesDialog extends JDialog {
             JRadioButton rb = new JRadioButton(t[1], t[0].equals(current));
             rb.setAlignmentX(Component.LEFT_ALIGNMENT);
             rb.addActionListener(e -> themeManager.changeTheme(t[0]));
+            group.add(rb);
+            p.add(rb);
+            p.add(Box.createVerticalStrut(4));
+        }
+
+        // System / built-in LAFs
+        p.add(Box.createVerticalStrut(8));
+        JLabel sysLabel = new JLabel("System");
+        sysLabel.setFont(sysLabel.getFont().deriveFont(Font.BOLD, 11f));
+        sysLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        p.add(sysLabel);
+        p.add(Box.createVerticalStrut(4));
+
+        for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+            String className = info.getClassName();
+            JRadioButton rb = new JRadioButton(info.getName(), className.equals(current));
+            rb.setAlignmentX(Component.LEFT_ALIGNMENT);
+            rb.addActionListener(e -> themeManager.changeTheme(className));
             group.add(rb);
             p.add(rb);
             p.add(Box.createVerticalStrut(4));
