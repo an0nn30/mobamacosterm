@@ -24,6 +24,9 @@ public class MainWindow extends JFrame {
     private final SessionsPanel     sessionsPanel;   // right  — server tree
     private final FileTransferPanel filePanel;
 
+    private JSplitPane mainSplit;   // sidePanel | rightSplit
+    private JSplitPane rightSplit;  // sessionTabPane | sessionsPanel
+
     public MainWindow(ConfigManager configManager, ThemeManager themeManager) {
         super("MobaMacOS Terminal");
         this.configManager = configManager;
@@ -47,16 +50,18 @@ public class MainWindow extends JFrame {
         setJMenuBar(menuBuilder.build());
 
         // Layout: [left panel] | [terminals] | [sessions]
-        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionTabPane, sessionsPanel);
+        rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionTabPane, sessionsPanel);
         rightSplit.setResizeWeight(1.0);          // terminals take all extra space
-        rightSplit.setDividerSize(4);
+        rightSplit.setDividerSize(6);
         rightSplit.setContinuousLayout(true);
-        rightSplit.setDividerLocation(1400 - 240 - 260 - 8); // right panel starts ~240 from edge
+        rightSplit.setOneTouchExpandable(true);
+        rightSplit.setDividerLocation(1400 - 240 - 260 - 6); // right panel starts ~240 from edge
 
-        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidePanel, rightSplit);
+        mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidePanel, rightSplit);
         mainSplit.setDividerLocation(260);
-        mainSplit.setDividerSize(4);
+        mainSplit.setDividerSize(6);
         mainSplit.setContinuousLayout(true);
+        mainSplit.setOneTouchExpandable(true);
 
         add(mainSplit, BorderLayout.CENTER);
 
@@ -67,6 +72,9 @@ public class MainWindow extends JFrame {
 
     /** Must be called after the window is visible. */
     public void handleStartup() {
+        // Restore panel layout after the window has been laid out
+        SwingUtilities.invokeLater(this::restorePanelLayout);
+
         AppConfig cfg = configManager.getConfig();
         List<String> lastKeys = cfg.getLastSessionKeys();
 
@@ -124,9 +132,48 @@ public class MainWindow extends JFrame {
     private void saveSessionsAndExit() {
         List<String> keys = new ArrayList<>(sessionTabPane.getLiveSessionKeys());
         configManager.getConfig().setLastSessionKeys(keys);
+        savePanelLayout();
         configManager.saveConfig();
         filePanel.dispose();
         System.exit(0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Panel layout persistence
+    // -----------------------------------------------------------------------
+
+    private void restorePanelLayout() {
+        AppConfig cfg = configManager.getConfig();
+        if (cfg.isLeftPanelCollapsed()) {
+            mainSplit.setDividerLocation(0);
+        } else {
+            mainSplit.setDividerLocation(cfg.getLeftPanelWidth());
+        }
+        if (cfg.isRightPanelCollapsed()) {
+            rightSplit.setDividerLocation(rightSplit.getWidth() - rightSplit.getDividerSize());
+        } else {
+            int loc = rightSplit.getWidth() - cfg.getRightPanelWidth() - rightSplit.getDividerSize();
+            rightSplit.setDividerLocation(Math.max(0, loc));
+        }
+    }
+
+    private void savePanelLayout() {
+        AppConfig cfg = configManager.getConfig();
+        int leftLoc = mainSplit.getDividerLocation();
+        if (leftLoc > 5) {
+            cfg.setLeftPanelWidth(leftLoc);
+            cfg.setLeftPanelCollapsed(false);
+        } else {
+            cfg.setLeftPanelCollapsed(true);
+        }
+        int rightLoc   = rightSplit.getDividerLocation();
+        int rightWidth = rightSplit.getWidth() - rightLoc - rightSplit.getDividerSize();
+        if (rightWidth > 5) {
+            cfg.setRightPanelWidth(rightWidth);
+            cfg.setRightPanelCollapsed(false);
+        } else {
+            cfg.setRightPanelCollapsed(true);
+        }
     }
 
     // -----------------------------------------------------------------------

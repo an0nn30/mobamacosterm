@@ -56,7 +56,7 @@ JPACKAGE   := "$(JAVA_HOME)/bin/jpackage"
 # =============================================================================
 
 .DEFAULT_GOAL := jar
-.PHONY: all deps compile test jar run stage app app-mac dmg app-win \
+.PHONY: all deps compile test jar jar-clean run stage app app-mac dmg app-win \
         icons-mac icons-win clean help
 
 all: jar
@@ -79,6 +79,11 @@ jar:  ## Build the shaded fat JAR — all dependencies and resources bundled
 	@echo ""
 	@echo "  Built: $(SHADED_JAR)"
 
+jar-clean:  ## Force a clean rebuild of the fat JAR (use when incremental compile misses changes)
+	$(MVN) clean package -DskipTests
+	@echo ""
+	@echo "  Built: $(SHADED_JAR)"
+
 run: compile  ## Run directly via Maven exec plugin (no packaging needed)
 	$(MVN) exec:java
 
@@ -86,7 +91,8 @@ run: compile  ## Run directly via Maven exec plugin (no packaging needed)
 # Staging — isolates the fat JAR so jpackage doesn't pick up stray files
 # =============================================================================
 
-stage: jar  ## Copy fat JAR into a clean staging directory for jpackage
+stage:  ## Force-clean build + copy fat JAR into staging directory for jpackage
+	$(MVN) clean package -DskipTests
 	@mkdir -p "$(STAGE_DIR)"
 	@cp "$(SHADED_JAR)" "$(STAGE_DIR)/"
 

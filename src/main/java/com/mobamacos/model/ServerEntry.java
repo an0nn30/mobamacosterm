@@ -18,6 +18,26 @@ public class ServerEntry {
     private String proxyJump = "";
     /** True when imported from ~/.ssh/config — never persisted back to that file */
     private boolean fromSshConfig = false;
+    /** Connect via the system mosh binary instead of SSHJ */
+    private boolean useMosh = false;
+    /** SSH options passed verbatim as --ssh="ssh <value>", e.g. "-i ~/.ssh/id_ed25519 -oProxyCommand=...". Empty = plain ssh. */
+    private String moshSshOpts = "";
+    /** Override mosh UDP port / range, e.g. "60001" or "60001:60010". Empty = default. */
+    private String moshPort = "";
+    /** Path to mosh-server on the remote host. Empty = let mosh find it in PATH. */
+    private String moshServerPath = "";
+    /** Mosh predict mode: adaptive (default), always, never, experimental. */
+    private String moshPredictMode = "adaptive";
+    /** Raw extra arguments appended verbatim to the mosh command line. */
+    private String moshExtraArgs = "";
+    /**
+     * ProxyCommand used exclusively for SSHJ SFTP/file-transfer connections when
+     * the session transport is mosh.  Mosh's UDP transport and the SFTP TCP
+     * connection are independent; this lets the user specify a separate proxy
+     * (e.g. "cloudflared access ssh --hostname %h") for file-transfer while
+     * mosh's --ssh flag handles the bootstrap proxy.
+     */
+    private String moshSftpProxyCommand = "";
 
     public ServerEntry() {
         this.id = UUID.randomUUID().toString();
@@ -51,6 +71,20 @@ public class ServerEntry {
     public void   setProxyJump(String jump)     { this.proxyJump = jump; }
     public boolean isFromSshConfig()            { return fromSshConfig; }
     public void    setFromSshConfig(boolean b)  { this.fromSshConfig = b; }
+    public boolean isUseMosh()                       { return useMosh; }
+    public void    setUseMosh(boolean b)             { this.useMosh = b; }
+    public String  getMoshSshOpts()                  { return moshSshOpts; }
+    public void    setMoshSshOpts(String s)          { this.moshSshOpts = s; }
+    public String  getMoshPort()                     { return moshPort; }
+    public void    setMoshPort(String p)             { this.moshPort = p; }
+    public String  getMoshServerPath()               { return moshServerPath; }
+    public void    setMoshServerPath(String p)       { this.moshServerPath = p; }
+    public String  getMoshPredictMode()              { return moshPredictMode; }
+    public void    setMoshPredictMode(String m)      { this.moshPredictMode = m; }
+    public String  getMoshExtraArgs()                { return moshExtraArgs; }
+    public void    setMoshExtraArgs(String a)        { this.moshExtraArgs = a; }
+    public String  getMoshSftpProxyCommand()         { return moshSftpProxyCommand; }
+    public void    setMoshSftpProxyCommand(String c) { this.moshSftpProxyCommand = c; }
 
     @Override
     public String toString() {

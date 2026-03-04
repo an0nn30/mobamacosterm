@@ -3,6 +3,8 @@ package com.mobamacos.ui;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.mobamacos.config.ConfigManager;
 import com.mobamacos.model.ServerEntry;
+import com.mobamacos.ssh.MoshTtyConnector;
+import com.mobamacos.ssh.MoshTtyConnector.CwdListener;
 import com.mobamacos.ssh.SshjTtyConnector;
 import com.mobamacos.ssh.SshSessionManager;
 import com.mobamacos.terminal.LocalShellTtyConnector;
@@ -22,10 +24,12 @@ public class SessionTabPane extends JPanel {
     private final SshSessionManager sshManager;
     private final JTabbedPane       tabbedPane;
 
-    /** Tracks which JediTermWidget corresponds to which ServerEntry (SSH sessions only). */
-    private final Map<JediTermWidget, ServerEntry>       sessionMap   = new LinkedHashMap<>();
+    /** Tracks which JediTermWidget corresponds to which ServerEntry (SSH/Mosh sessions). */
+    private final Map<JediTermWidget, ServerEntry>       sessionMap        = new LinkedHashMap<>();
     /** Tracks which JediTermWidget corresponds to which SshjTtyConnector. */
-    private final Map<JediTermWidget, SshjTtyConnector> connectorMap = new LinkedHashMap<>();
+    private final Map<JediTermWidget, SshjTtyConnector> connectorMap      = new LinkedHashMap<>();
+    /** Tracks which JediTermWidget corresponds to which MoshTtyConnector (for CWD tracking). */
+    private final Map<JediTermWidget, MoshTtyConnector> moshConnectorMap  = new LinkedHashMap<>();
 
     /** Listeners notified when the active SSH session changes (e.g. FileTransferPanel). */
     private final List<SessionListener> sessionListeners = new ArrayList<>();
@@ -55,10 +59,17 @@ public class SessionTabPane extends JPanel {
                 Component comp = tabbedPane.getComponentAt(idx);
                 ServerEntry server = sessionMap.get(comp);
                 if (server != null) {
-                    // Wire CWD listener for the newly-active connector
+                    // Wire CWD listener for the newly-active SSH connector
                     SshjTtyConnector conn = connectorMap.get(comp);
                     if (conn != null) {
                         conn.setCwdListener(path ->
+                            SwingUtilities.invokeLater(() ->
+                                sessionListeners.forEach(l -> l.onCwdChanged(path))));
+                    }
+                    // Wire CWD listener for the newly-active Mosh connector
+                    MoshTtyConnector moshConn = moshConnectorMap.get(comp);
+                    if (moshConn != null) {
+                        moshConn.setCwdListener(path ->
                             SwingUtilities.invokeLater(() ->
                                 sessionListeners.forEach(l -> l.onCwdChanged(path))));
                     }
@@ -66,8 +77,9 @@ public class SessionTabPane extends JPanel {
                     return;
                 }
             }
-            // No SSH session active — clear CWD listener on all connectors
+            // No SSH/Mosh session active — clear CWD listeners on all connectors
             connectorMap.values().forEach(c -> c.setCwdListener(null));
+            moshConnectorMap.values().forEach(c -> c.setCwdListener(null));
             sessionListeners.forEach(SessionListener::onSessionDeactivated);
         });
     }
@@ -132,8 +144,13 @@ public class SessionTabPane extends JPanel {
         worker.execute();
     }
 
-    /** Opens an SSH session tab with an immediate connecting indicator. */
+    /** Opens an SSH or Mosh session tab. */
     public void openSession(ServerEntry server) {
+        if (server.isUseMosh()) { openMoshSession(server); return; }
+        openSshSession(server);
+    }
+
+    private void openSshSession(ServerEntry server) {
         String title = server.getName();
         JPanel placeholder = buildConnectingPanel(server);
         int idx = tabbedPane.getTabCount();
@@ -191,6 +208,92 @@ public class SessionTabPane extends JPanel {
                     terminal.requestFocusInWindow();
 
                     watchForExit(connector, terminal, server);
+
+                } catch (Exception e) {
+                    if (currentIdx < 0) return;
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    tabbedPane.setComponentAt(currentIdx, buildErrorPanel(cause.getMessage(), server));
+                    tabbedPane.revalidate();
+                    tabbedPane.repaint();
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void openMoshSession(ServerEntry server) {
+        String title = server.getName() + " [mosh]";
+        JPanel placeholder = buildConnectingPanel(server);
+        int idx = tabbedPane.getTabCount();
+        tabbedPane.addTab(title, placeholder);
+        tabbedPane.setSelectedIndex(idx);
+        TabHeader header = new TabHeader(tabbedPane, title, null);
+        tabbedPane.setTabComponentAt(idx, header);
+
+        SwingWorker<MoshTtyConnector, Void> worker = new SwingWorker<>() {
+            @Override protected MoshTtyConnector doInBackground() throws Exception {
+                return new MoshTtyConnector(server);
+            }
+
+            @Override
+            protected void done() {
+                int currentIdx = tabbedPane.indexOfComponent(placeholder);
+                try {
+                    MoshTtyConnector connector = get();
+                    if (currentIdx < 0) { connector.close(); return; }
+
+                    JediTermWidget terminal = createTerminalWidget();
+                    terminal.createTerminalSession(connector);
+                    terminal.start();
+
+                    sessionMap.put(terminal, server);
+                    moshConnectorMap.put(terminal, connector);
+
+                    // Wire CWD listener immediately if this is the selected tab
+                    if (tabbedPane.getSelectedComponent() == placeholder
+                            || tabbedPane.getSelectedIndex() == currentIdx) {
+                        connector.setCwdListener(path ->
+                            SwingUtilities.invokeLater(() ->
+                                sessionListeners.forEach(l -> l.onCwdChanged(path))));
+                    }
+
+                    tabbedPane.setComponentAt(currentIdx, terminal);
+
+                    if (tabbedPane.getSelectedIndex() == currentIdx) {
+                        sessionListeners.forEach(l -> l.onSessionActivated(server));
+                    }
+
+                    header.setCloseAction(() -> {
+                        sessionMap.remove(terminal);
+                        moshConnectorMap.remove(terminal);
+                        connector.setCwdListener(null);
+                        try { terminal.close(); } catch (Exception ignored) {}
+                        connector.close();
+                    });
+                    tabbedPane.revalidate();
+                    tabbedPane.repaint();
+                    terminal.requestFocusInWindow();
+
+                    // Mosh-specific exit watcher: keep the tab open on non-zero exit
+                    // so the user can read the error output in the terminal.
+                    Thread watcher = new Thread(() -> {
+                        int code;
+                        try { code = connector.waitFor(); } catch (InterruptedException ex) { return; }
+                        SwingUtilities.invokeLater(() -> {
+                            sessionMap.remove(terminal);
+                            moshConnectorMap.remove(terminal);
+                            int i = tabbedPane.indexOfComponent(terminal);
+                            if (i < 0) return;
+                            if (code == 0) {
+                                tabbedPane.remove(i);
+                            } else {
+                                // Leave the tab open so the error output is readable
+                                header.setTitle("[disconnected] " + server.getName());
+                            }
+                        });
+                    }, "mosh-exit-watcher");
+                    watcher.setDaemon(true);
+                    watcher.start();
 
                 } catch (Exception e) {
                     if (currentIdx < 0) return;
@@ -302,16 +405,17 @@ public class SessionTabPane extends JPanel {
 
     static class TabHeader extends JPanel {
 
-        private Runnable closeAction;
+        private Runnable      closeAction;
+        private final JLabel  titleLabel;
 
         TabHeader(JTabbedPane pane, String title, Runnable closeAction) {
             super(new FlowLayout(FlowLayout.LEFT, 0, 0));
             setOpaque(false);
             this.closeAction = closeAction;
 
-            JLabel lbl = new JLabel(title);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
-            add(lbl);
+            titleLabel = new JLabel(title);
+            titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
+            add(titleLabel);
 
             JButton close = new JButton("\u00d7");
             close.setFont(close.getFont().deriveFont(Font.BOLD, 13f));
@@ -331,5 +435,6 @@ public class SessionTabPane extends JPanel {
         }
 
         void setCloseAction(Runnable r) { this.closeAction = r; }
+        void setTitle(String t)         { titleLabel.setText(t); }
     }
 }

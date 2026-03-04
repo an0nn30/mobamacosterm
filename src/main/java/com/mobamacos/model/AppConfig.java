@@ -15,6 +15,11 @@ public class AppConfig {
     // Session restore
     private List<String>  lastSessionKeys   = new ArrayList<>();   // "user@host:port"
     private boolean       dontAskResume     = false;
+    // Panel layout
+    private int     leftPanelWidth     = 260;
+    private boolean leftPanelCollapsed = false;
+    private int     rightPanelWidth    = 240;
+    private boolean rightPanelCollapsed = false;
 
     public List<ServerFolder> getFolders()            { return folders; }
     public void setFolders(List<ServerFolder> folders){ this.folders = folders; }
@@ -32,4 +37,12 @@ public class AppConfig {
     public void   setLastSessionKeys(List<String> k)  { this.lastSessionKeys = k; }
     public boolean isDontAskResume()                  { return dontAskResume; }
     public void   setDontAskResume(boolean b)         { this.dontAskResume = b; }
+    public int     getLeftPanelWidth()                { return leftPanelWidth; }
+    public void    setLeftPanelWidth(int w)           { this.leftPanelWidth = w; }
+    public boolean isLeftPanelCollapsed()             { return leftPanelCollapsed; }
+    public void    setLeftPanelCollapsed(boolean b)   { this.leftPanelCollapsed = b; }
+    public int     getRightPanelWidth()               { return rightPanelWidth; }
+    public void    setRightPanelWidth(int w)          { this.rightPanelWidth = w; }
+    public boolean isRightPanelCollapsed()            { return rightPanelCollapsed; }
+    public void    setRightPanelCollapsed(boolean b)  { this.rightPanelCollapsed = b; }
 }

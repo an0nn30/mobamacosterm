@@ -191,6 +191,12 @@ public class SessionsPanel extends JPanel {
                 connect.addActionListener(e -> sessionTabPane.openSession(server));
                 menu.add(connect);
                 menu.addSeparator();
+                if (!server.isFromSshConfig()) {
+                    JMenuItem edit = new JMenuItem("Edit\u2026");
+                    edit.addActionListener(e -> openEditConnectionDialog(server, sourceFolder));
+                    menu.add(edit);
+                    menu.addSeparator();
+                }
                 JMenuItem move = new JMenuItem("Move to Folder\u2026");
                 move.addActionListener(e -> promptMoveServer(server, sourceFolder));
                 menu.add(move);
@@ -231,6 +237,14 @@ public class SessionsPanel extends JPanel {
     private void openNewConnectionDialog(ServerFolder preselected) {
         Window parent = SwingUtilities.getWindowAncestor(this);
         NewConnectionDialog dlg = new NewConnectionDialog(parent, configManager, preselected);
+        dlg.addSavedListener(this::refresh);
+        dlg.setConnectCallback(sessionTabPane::openSession);
+        dlg.setVisible(true);
+    }
+
+    private void openEditConnectionDialog(ServerEntry server, ServerFolder sourceFolder) {
+        Window parent = SwingUtilities.getWindowAncestor(this);
+        NewConnectionDialog dlg = new NewConnectionDialog(parent, configManager, server, sourceFolder);
         dlg.addSavedListener(this::refresh);
         dlg.setConnectCallback(sessionTabPane::openSession);
         dlg.setVisible(true);

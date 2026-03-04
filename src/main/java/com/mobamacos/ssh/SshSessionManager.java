@@ -51,8 +51,20 @@ public class SshSessionManager {
         // ProxyCommand wins if both are set. ProxyJump is converted to the
         // equivalent "ssh -W %h:%p <jumphost>" ProxyCommand so that the
         // existing ProxyCommandSocket handles the tunnelling transparently.
+        //
+        // For mosh sessions, the regular proxyCommand/proxyJump fields are
+        // empty (mosh handles its own bootstrap SSH connection via --ssh).
+        // A dedicated moshSftpProxyCommand is used instead so that the SSHJ
+        // file-transfer connection can still reach hosts behind a proxy.
         String proxyCmd  = server.getProxyCommand();
         String proxyJump = server.getProxyJump();
+        if (server.isUseMosh()) {
+            String sftp = server.getMoshSftpProxyCommand();
+            if (sftp != null && !sftp.isBlank()) {
+                proxyCmd  = sftp;
+                proxyJump = null;
+            }
+        }
         if (proxyCmd == null || proxyCmd.isBlank()) {
             if (proxyJump != null && !proxyJump.isBlank()) {
                 proxyCmd = "ssh -W %h:%p " + proxyJump;
